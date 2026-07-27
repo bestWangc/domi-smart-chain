@@ -23,6 +23,9 @@
 /build/bin/
 /geth*.zip
 
+# Local Domi testnet data, including encrypted validator keystores.
+/.domi-testnet/
+
 # used by the build/ci.go archive + upload tool
 /geth*.tar.gz
 /geth*.tar.gz.sig

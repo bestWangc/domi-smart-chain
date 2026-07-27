@@ -913,35 +913,24 @@ func importHistory(ctx *cli.Context) error {
 		network string
 	)
 
-	// Determine network.
-	if utils.IsNetworkPreset(ctx) {
-		switch {
-		case ctx.Bool(utils.BSCMainnetFlag.Name):
-			network = "mainnet"
-		case ctx.Bool(utils.ChapelFlag.Name):
-			network = "chapel"
+	// Determine the network from files present in the directory.
+	var networks []string
+	for _, n := range params.NetworkNames {
+		entries, err := era.ReadDir(dir, n)
+		if err != nil {
+			return fmt.Errorf("error reading %s: %w", dir, err)
 		}
-	} else {
-		// No network flag set, try to determine network based on files
-		// present in directory.
-		var networks []string
-		for _, n := range params.NetworkNames {
-			entries, err := era.ReadDir(dir, n)
-			if err != nil {
-				return fmt.Errorf("error reading %s: %w", dir, err)
-			}
-			if len(entries) > 0 {
-				networks = append(networks, n)
-			}
+		if len(entries) > 0 {
+			networks = append(networks, n)
 		}
-		if len(networks) == 0 {
-			return fmt.Errorf("no era1 files found in %s", dir)
-		}
-		if len(networks) > 1 {
-			return errors.New("multiple networks found, use a network flag to specify desired network")
-		}
-		network = networks[0]
 	}
+	if len(networks) == 0 {
+		return fmt.Errorf("no era1 files found in %s", dir)
+	}
+	if len(networks) > 1 {
+		return errors.New("multiple networks found, specify a directory containing one network")
+	}
+	network = networks[0]
 
 	if err := utils.ImportHistory(chain, dir, network); err != nil {
 		return err

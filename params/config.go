@@ -319,6 +319,12 @@ var (
 		},
 	}
 
+	// DomiMainnetChainConfig contains the chain parameters for the Domi mainnet.
+	DomiMainnetChainConfig = newDomiChainConfig(9150)
+
+	// DomiTestnetChainConfig contains the chain parameters for the Domi testnet.
+	DomiTestnetChainConfig = newDomiChainConfig(9199)
+
 	// used to test hard fork upgrade, following https://github.com/bnb-chain/bsc-genesis-contract/blob/master/genesis.json
 	RialtoChainConfig = &ChainConfig{
 		ChainID:             big.NewInt(714),
@@ -597,6 +603,14 @@ var (
 	TestRules = TestChainConfig.Rules(new(big.Int), false, 0)
 )
 
+// newDomiChainConfig derives a Domi network configuration from the BSC
+// protocol configuration while assigning a distinct EIP-155 chain ID.
+func newDomiChainConfig(chainID int64) *ChainConfig {
+	config := *BSCChainConfig
+	config.ChainID = big.NewInt(chainID)
+	return &config
+}
+
 func GetBuiltInChainConfig(ghash common.Hash) *ChainConfig {
 	switch ghash {
 	case MainnetGenesisHash:
@@ -668,10 +682,12 @@ var (
 
 // NetworkNames are user friendly names to use in the chain spec banner.
 var NetworkNames = map[string]string{
-	MainnetChainConfig.ChainID.String(): "mainnet",
-	BSCChainConfig.ChainID.String():     "bsc",
-	ChapelChainConfig.ChainID.String():  "chapel",
-	RialtoChainConfig.ChainID.String():  "rialto",
+	MainnetChainConfig.ChainID.String():     "mainnet",
+	BSCChainConfig.ChainID.String():         "bsc",
+	ChapelChainConfig.ChainID.String():      "chapel",
+	DomiMainnetChainConfig.ChainID.String(): "domi-mainnet",
+	DomiTestnetChainConfig.ChainID.String(): "domi-testnet",
+	RialtoChainConfig.ChainID.String():      "rialto",
 }
 
 // ChainConfig is the core config which determines the blockchain settings.

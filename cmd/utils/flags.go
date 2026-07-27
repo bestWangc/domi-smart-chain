@@ -161,18 +161,8 @@ var (
 	}
 	NetworkIdFlag = &cli.Uint64Flag{
 		Name:     "networkid",
-		Usage:    "Explicitly set network id (integer)(For testnets: use --chapel instead)",
+		Usage:    "Explicitly set network id (integer)",
 		Value:    ethconfig.Defaults.NetworkId,
-		Category: flags.EthCategory,
-	}
-	BSCMainnetFlag = &cli.BoolFlag{
-		Name:     "mainnet",
-		Usage:    "BSC mainnet",
-		Category: flags.EthCategory,
-	}
-	ChapelFlag = &cli.BoolFlag{
-		Name:     "chapel",
-		Usage:    "Chapel network: pre-configured Proof-of-Stake-Authority BSC test network",
 		Category: flags.EthCategory,
 	}
 	// Dev mode
@@ -1349,12 +1339,8 @@ Please note that --` + MetricsHTTPFlag.Name + ` must be set to start the server.
 )
 
 var (
-	// TestnetFlags is the flag group of all built-in supported testnets.
-	TestnetFlags = []cli.Flag{
-		ChapelFlag,
-	}
-	// NetworkFlags is the flag group of all built-in supported networks.
-	NetworkFlags = append([]cli.Flag{BSCMainnetFlag}, TestnetFlags...)
+	// NetworkFlags is reserved for future built-in Domi network presets.
+	NetworkFlags = []cli.Flag{}
 
 	// DatabaseFlags is the flag group of all database flags.
 	DatabaseFlags = []cli.Flag{
@@ -2034,7 +2020,6 @@ func setRequiredBlocks(ctx *cli.Context, cfg *ethconfig.Config) {
 // SetEthConfig applies eth-related command line flags to the config.
 func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	// Avoid conflicting network flags, don't allow network id override on preset networks
-	flags.CheckExclusive(ctx, BSCMainnetFlag, DeveloperFlag, NetworkIdFlag, OverrideGenesisFlag)
 	flags.CheckExclusive(ctx, DeveloperFlag, ExternalSignerFlag) // Can't use both ephemeral unlocked and external signer
 
 	if ctx.IsSet(EnableBALFlag.Name) {
@@ -2284,20 +2269,8 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	if ctx.Bool(StateSizeTrackingFlag.Name) {
 		cfg.EnableStateSizeTracking = true
 	}
-	// Override any default configs for hard coded networks.
+	// Configure the ephemeral developer network when requested.
 	switch {
-	case ctx.Bool(BSCMainnetFlag.Name):
-		if !ctx.IsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 56
-		}
-		cfg.Genesis = core.DefaultBSCGenesisBlock()
-		SetDNSDiscoveryDefaults(cfg, params.BSCGenesisHash)
-	case ctx.Bool(ChapelFlag.Name) || cfg.NetworkId == 97:
-		if !ctx.IsSet(NetworkIdFlag.Name) {
-			cfg.NetworkId = 97
-		}
-		cfg.Genesis = core.DefaultChapelGenesisBlock()
-		SetDNSDiscoveryDefaults(cfg, params.ChapelGenesisHash)
 	case ctx.Bool(DeveloperFlag.Name):
 		cfg.NetworkId = 1337
 		cfg.SyncMode = ethconfig.FullSync
@@ -2787,16 +2760,10 @@ func DialRPCWithHeaders(endpoint string, headers []string) (*rpc.Client, error) 
 }
 
 func MakeGenesis(ctx *cli.Context) *core.Genesis {
-	var genesis *core.Genesis
-	switch {
-	case ctx.Bool(BSCMainnetFlag.Name):
-		genesis = core.DefaultBSCGenesisBlock()
-	case ctx.Bool(ChapelFlag.Name):
-		genesis = core.DefaultChapelGenesisBlock()
-	case ctx.Bool(DeveloperFlag.Name):
+	if ctx.Bool(DeveloperFlag.Name) {
 		Fatalf("Developer chains are ephemeral")
 	}
-	return genesis
+	return nil
 }
 
 // MakeChain creates a chain manager from set command line flags.

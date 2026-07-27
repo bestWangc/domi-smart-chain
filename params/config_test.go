@@ -26,6 +26,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestDomiChainConfigs(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *ChainConfig
+		chainID int64
+	}{
+		{"mainnet", DomiMainnetChainConfig, 9150},
+		{"testnet", DomiTestnetChainConfig, 9199},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, big.NewInt(test.chainID), test.config.ChainID)
+			require.True(t, test.config.IsInBSC())
+			require.NotSame(t, BSCChainConfig, test.config)
+		})
+	}
+}
+
 func TestCheckCompatible(t *testing.T) {
 	type test struct {
 		stored, new   *ChainConfig

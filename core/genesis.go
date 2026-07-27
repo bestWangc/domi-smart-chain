@@ -44,7 +44,10 @@ import (
 
 //go:generate go run github.com/fjl/gencodec -type Genesis -field-override genesisSpecMarshaling -out gen_genesis.go
 
-var errGenesisNoConfig = errors.New("genesis has no chain configuration")
+var (
+	errGenesisNoConfig = errors.New("genesis has no chain configuration")
+	errGenesisRequired = errors.New("a genesis file is required for a new Domi network")
+)
 
 // Deprecated: use types.Account instead.
 type GenesisAccount = types.Account
@@ -353,8 +356,7 @@ func SetupGenesisBlockWithOverride(db ethdb.Database, triedb *triedb.Database, g
 	ghash := rawdb.ReadCanonicalHash(db, 0)
 	if (ghash == common.Hash{}) {
 		if genesis == nil {
-			log.Info("Writing default BSC mainnet genesis block")
-			genesis = DefaultBSCGenesisBlock()
+			return nil, common.Hash{}, nil, errGenesisRequired
 		} else {
 			log.Info("Writing custom genesis block")
 		}
@@ -474,9 +476,7 @@ func LoadChainConfig(db ethdb.Database, genesis *Genesis) (cfg *params.ChainConf
 		}
 		return genesis.Config, ghash, nil
 	}
-	// There is no stored chain config and no new config provided,
-	// In this case the default chain config(mainnet) will be used
-	return params.BSCChainConfig, params.BSCGenesisHash, nil
+	return nil, common.Hash{}, errGenesisRequired
 }
 
 // chainConfigOrDefault retrieves the attached chain configuration. If the genesis
