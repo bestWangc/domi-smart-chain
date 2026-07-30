@@ -16,6 +16,10 @@ if [ ! -f "$DATA_DIR/password.txt" ]; then
   echo "Missing $DATA_DIR/password.txt" >&2
   exit 1
 fi
+if [ ! -f "$DATA_DIR/bls-password.txt" ]; then
+  echo "Missing $DATA_DIR/bls-password.txt" >&2
+  exit 1
+fi
 
 if [ ! -d "$DATA_DIR/geth/chaindata" ]; then
   "$GETH" --datadir "$DATA_DIR" init "$GENESIS"
@@ -26,6 +30,7 @@ exec "$GETH" \
   --networkid 9199 \
   --unlock "$VALIDATOR" \
   --password "$DATA_DIR/password.txt" \
+  --blspassword "$DATA_DIR/bls-password.txt" \
   --mine \
   --miner.etherbase "$VALIDATOR" \
   --miner.gasprice 0 \
