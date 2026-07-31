@@ -26,7 +26,7 @@ if [ "$VALIDATOR_COUNT" -ne 3 ]; then
   echo "This Compose topology has exactly 3 validators; update compose and static IPs before changing VALIDATOR_COUNT." >&2
   exit 1
 fi
-if [ -e "$RUNTIME_DIR/nodes" ] || [ -e "$RUNTIME_DIR/genesis.json" ]; then
+if [ -e "$RUNTIME_DIR/nodes" ] || [ -e "$RUNTIME_DIR/genesis.json" ] || [ -e "$GENESIS_SOURCE" ]; then
   echo "Refusing to overwrite $RUNTIME_DIR. Back up or choose a new RUNTIME_DIR." >&2
   exit 1
 fi
@@ -73,6 +73,10 @@ for index in 0 1 2; do
     --key /data/geth/nodekey --ip "172.30.0.$((11 + index))" --port 30303)
 done
 for index in 0 1 2; do
+  # init-network creates config.toml as a directory. The runtime config is
+  # supplied by our versioned template and must be a regular file for Docker.
+  rm -rf "$RUNTIME_DIR/nodes/node$index/config.toml"
+  cp "$ROOT_DIR/testnet/config.toml.template" "$RUNTIME_DIR/nodes/node$index/config.toml"
   static_nodes=()
   for peer_index in 0 1 2; do
     if [ "$peer_index" -ne "$index" ]; then
@@ -142,9 +146,18 @@ docker run --rm --entrypoint /bin/bash -e POETRY_VIRTUALENVS_IN_PROJECT=true -e 
 # The independent chain retains TokenHub bytecode for BSC compatibility but
 # has no BNB Chain bridge reserve. Regenerate through the official program
 # with the project-specific reserve rather than editing the generated JSON.
+# The upstream template strips the 0x prefix from init-holder keys. BSC v1.7.7
+# does not load those entries into state, so create a disposable generator
+# input template with canonical JSON-RPC address keys.
+sed "s#\"{{ v.address.replace('0x', '') }}\"#\"0x{{ v.address.replace('0x', '') }}\"#" \
+  "$GENESIS_SOURCE/genesis-template.json" > "$GENESIS_SOURCE/genesis-domi-template.json"
+if cmp -s "$GENESIS_SOURCE/genesis-template.json" "$GENESIS_SOURCE/genesis-domi-template.json"; then
+  echo "Unable to apply the init-holder address template compatibility fix" >&2
+  exit 1
+fi
 docker run --rm --entrypoint node -v "$GENESIS_SOURCE:/workspace" \
   -v "$INIT_HOLDERS_FILE:/workspace/scripts/init_holders.js:ro" -w /workspace "$GENESIS_BUILDER_IMAGE" \
-  scripts/generate-genesis.js --chainId "$CHAIN_ID" --output ./genesis-dev.json \
+  scripts/generate-genesis.js --chainId "$CHAIN_ID" --template ./genesis-domi-template.json --output ./genesis-dev.json \
   --initLockedBNBOnTokenHub "$TOKEN_HUB_INITIAL_LOCKED_DMT"
 docker run --rm --entrypoint /bin/bash -e POETRY_VIRTUALENVS_IN_PROJECT=true -v "$GENESIS_SOURCE:/workspace" -w /workspace "$GENESIS_BUILDER_IMAGE" \
   -lc 'poetry run python -m scripts.generate recover'
