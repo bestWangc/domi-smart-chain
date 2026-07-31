@@ -1,0 +1,19 @@
+[Unit]
+Description=Domi independent BSC testnet validators
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=simple
+User=domi
+Group=domi
+WorkingDirectory=/home/domi/domi-chain/testnet
+ExecStartPre=/usr/bin/docker compose --env-file /home/domi/domi-chain/testnet/.env -f /home/domi/domi-chain/testnet/docker-compose.yml config -q
+ExecStart=/usr/bin/docker compose --env-file /home/domi/domi-chain/testnet/.env -f /home/domi/domi-chain/testnet/docker-compose.yml up
+ExecStop=/usr/bin/docker compose --env-file /home/domi/domi-chain/testnet/.env -f /home/domi/domi-chain/testnet/docker-compose.yml down
+Restart=always
+RestartSec=5
+TimeoutStopSec=90
+
+[Install]
+WantedBy=multi-user.target

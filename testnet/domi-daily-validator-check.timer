@@ -1,0 +1,8 @@
+[Unit]
+Description=Verify BSC validator-set update after each UTC day boundary
+
+[Timer]
+OnCalendar=*-*-* 00:03:00 UTC
+
+[Install]
+WantedBy=timers.target

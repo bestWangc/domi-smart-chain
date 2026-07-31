@@ -1,0 +1,69 @@
+services:
+  validator-1:
+    image: domi-bsc:v1.7.7
+    build:
+      context: ..
+      dockerfile: testnet/Dockerfile.validator
+    restart: unless-stopped
+    volumes:
+      - ./runtime/nodes/node0:/data
+      - ./runtime/nodes/node0/config.toml:/config/config.toml:ro
+    command: >-
+      --config /config/config.toml --datadir /data --nodekey /data/geth/nodekey --allow-insecure-unlock
+      --unlock ${VALIDATOR_1} --password /data/password.txt --blspassword /data/bls-password.txt
+      --mine --miner.etherbase ${VALIDATOR_1} --miner.gaslimit 55000000 --miner.gasprice 1000000000
+      --nat extip:172.30.0.11
+      --http --http.addr 0.0.0.0 --http.port 8545 --http.api eth,net,web3,txpool
+      --http.vhosts * --http.corsdomain * --ws --ws.addr 0.0.0.0 --ws.port 8546
+      --ws.api eth,net,web3,txpool --ws.origins *
+    networks:
+      validators:
+        ipv4_address: 172.30.0.11
+    ports:
+      - "8545:8545"
+      - "8546:8546"
+      - "30311:30303/tcp"
+      - "30311:30303/udp"
+
+  validator-2:
+    image: domi-bsc:v1.7.7
+    restart: unless-stopped
+    volumes:
+      - ./runtime/nodes/node1:/data
+      - ./runtime/nodes/node1/config.toml:/config/config.toml:ro
+    command: >-
+      --config /config/config.toml --datadir /data --nodekey /data/geth/nodekey --allow-insecure-unlock
+      --unlock ${VALIDATOR_2} --password /data/password.txt --blspassword /data/bls-password.txt
+      --mine --miner.etherbase ${VALIDATOR_2} --miner.gaslimit 55000000 --miner.gasprice 1000000000
+      --nat extip:172.30.0.12
+    networks:
+      validators:
+        ipv4_address: 172.30.0.12
+    ports:
+      - "30312:30303/tcp"
+      - "30312:30303/udp"
+
+  validator-3:
+    image: domi-bsc:v1.7.7
+    restart: unless-stopped
+    volumes:
+      - ./runtime/nodes/node2:/data
+      - ./runtime/nodes/node2/config.toml:/config/config.toml:ro
+    command: >-
+      --config /config/config.toml --datadir /data --nodekey /data/geth/nodekey --allow-insecure-unlock
+      --unlock ${VALIDATOR_3} --password /data/password.txt --blspassword /data/bls-password.txt
+      --mine --miner.etherbase ${VALIDATOR_3} --miner.gaslimit 55000000 --miner.gasprice 1000000000
+      --nat extip:172.30.0.13
+    networks:
+      validators:
+        ipv4_address: 172.30.0.13
+    ports:
+      - "30313:30303/tcp"
+      - "30313:30303/udp"
+
+networks:
+  validators:
+    name: domi-validators
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24

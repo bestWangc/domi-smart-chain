@@ -1,0 +1,15 @@
+FROM golang:1.25-bookworm AS nodekey-enode
+
+WORKDIR /src
+COPY . .
+RUN CGO_ENABLED=0 go build -o /out/nodekey-enode ./testnet/nodekey-enode.go
+
+FROM debian:trixie-slim
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates tini \
+  && rm -rf /var/lib/apt/lists/*
+COPY build/bin/geth /usr/local/bin/geth
+COPY --from=nodekey-enode /out/nodekey-enode /usr/local/bin/nodekey-enode
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/geth"]

@@ -1,0 +1,10 @@
+[Unit]
+Description=Verify the daily BSC validator-set system transaction
+After=domi.service
+
+[Service]
+Type=oneshot
+User=domi
+Group=domi
+TimeoutStartSec=5min
+ExecStart=/home/domi/domi-chain/testnet/domi-daily-validator-check.sh

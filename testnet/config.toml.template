@@ -1,0 +1,22 @@
+[Eth]
+NetworkId = 9199
+SyncMode = "full"
+NoPruning = false
+
+[Eth.Miner]
+GasCeil = 55000000
+GasPrice = 1000000000
+
+[Node]
+DataDir = "/data"
+InsecureUnlockAllowed = true
+NoUSB = true
+IPCPath = "geth.ipc"
+
+[Node.P2P]
+MaxPeers = 50
+NoDiscovery = true
+BootstrapNodes = []
+StaticNodes = []
+TrustedNodes = []
+ListenAddr = ":30303"

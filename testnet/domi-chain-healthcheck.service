@@ -1,0 +1,9 @@
+[Unit]
+Description=Domi BSC testnet consensus health check
+After=domi.service
+
+[Service]
+Type=oneshot
+User=domi
+Group=domi
+ExecStart=/home/domi/domi-chain/testnet/domi-healthcheck.sh
