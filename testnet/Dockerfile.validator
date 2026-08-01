@@ -3,7 +3,7 @@ FROM golang:1.25-bookworm AS nodekey-enode
 WORKDIR /src
 COPY . .
 RUN CGO_ENABLED=0 go build -o /out/nodekey-enode ./testnet/nodekey-enode.go
-RUN CGO_ENABLED=0 go build -o /out/stakehub-bootstrap ./testnet/stakehub-bootstrap.go
+RUN go build -o /out/stakehub-bootstrap ./testnet/stakehub-bootstrap.go
 
 FROM debian:trixie-slim
 
