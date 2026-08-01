@@ -2,7 +2,6 @@
 set -euo pipefail
 
 rpc_url=${RPC_URL:-http://127.0.0.1:8545}
-max_backscan=${MAX_BACKSCAN:-1200}
 validator_set_selector=0x1e4c1524
 
 rpc() {
@@ -20,23 +19,29 @@ latest_block=$(block_by_number "$latest_hex" false)
 latest_time=$(( $(jq -er '.result.timestamp' <<<"$latest_block") ))
 latest_day=$((latest_time / 86400))
 
-boundary=-1
-for ((number = latest - 1; number >= 0 && number > latest - max_backscan; number--)); do
-  number_hex=$(printf '0x%x' "$number")
-  block=$(block_by_number "$number_hex" false)
-  block_time=$(( $(jq -er '.result.timestamp' <<<"$block") ))
-  if [ $((block_time / 86400)) -lt "$latest_day" ]; then
-    boundary=$((number + 1))
-    break
+# Block rates vary by network. Locate the first block in the current UTC day
+# by timestamp rather than assuming a fixed number of blocks per day.
+lower=0
+upper=$latest
+while [ "$lower" -lt "$upper" ]; do
+  middle=$((lower + (upper - lower) / 2))
+  middle_hex=$(printf '0x%x' "$middle")
+  middle_block=$(block_by_number "$middle_hex" false)
+  middle_time=$(( $(jq -er '.result.timestamp' <<<"$middle_block") ))
+  if [ $((middle_time / 86400)) -lt "$latest_day" ]; then
+    lower=$((middle + 1))
+  else
+    upper=$middle
   fi
 done
-
-if [ "$boundary" -lt 0 ]; then
-  echo "could not find the UTC day boundary within $max_backscan blocks" >&2
+boundary=$lower
+boundary_hex=$(printf '0x%x' "$boundary")
+boundary_time=$(( $(jq -er '.result.timestamp' <<<"$(block_by_number "$boundary_hex" false)") ))
+if [ $((boundary_time / 86400)) -ne "$latest_day" ]; then
+  echo "could not locate the current UTC day boundary" >&2
   exit 1
 fi
 
-boundary_hex=$(printf '0x%x' "$boundary")
 boundary_block=$(block_by_number "$boundary_hex" true)
 system_tx_hash=$(jq -er --arg selector "$validator_set_selector" '
   first(.result.transactions[] | select((.input // "") | startswith($selector)) | .hash)

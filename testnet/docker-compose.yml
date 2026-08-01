@@ -13,7 +13,7 @@ services:
       --unlock ${VALIDATOR_1} --password /data/password.txt --blspassword /data/bls-password.txt
       --mine --miner.etherbase ${VALIDATOR_1} --miner.gaslimit 55000000 --miner.gasprice 1000000000
       --nat extip:172.30.0.11
-      --http --http.addr 0.0.0.0 --http.port 8545 --http.api eth,net,web3,txpool
+      --http --http.addr 0.0.0.0 --http.port 8545 --http.api eth,net,web3,txpool --http.vhosts *
       --http.vhosts * --http.corsdomain * --ws --ws.addr 0.0.0.0 --ws.port 8546
       --ws.api eth,net,web3,txpool --ws.origins *
     networks:
@@ -36,6 +36,7 @@ services:
       --unlock ${VALIDATOR_2} --password /data/password.txt --blspassword /data/bls-password.txt
       --mine --miner.etherbase ${VALIDATOR_2} --miner.gaslimit 55000000 --miner.gasprice 1000000000
       --nat extip:172.30.0.12
+      --http --http.addr 0.0.0.0 --http.port 8545 --http.api eth,net,web3,txpool --http.vhosts *
     networks:
       validators:
         ipv4_address: 172.30.0.12
@@ -54,12 +55,29 @@ services:
       --unlock ${VALIDATOR_3} --password /data/password.txt --blspassword /data/bls-password.txt
       --mine --miner.etherbase ${VALIDATOR_3} --miner.gaslimit 55000000 --miner.gasprice 1000000000
       --nat extip:172.30.0.13
+      --http --http.addr 0.0.0.0 --http.port 8545 --http.api eth,net,web3,txpool
     networks:
       validators:
         ipv4_address: 172.30.0.13
     ports:
       - "30313:30303/tcp"
       - "30313:30303/udp"
+
+  stakehub-bootstrap:
+    image: domi-bsc:v1.7.7
+    restart: on-failure
+    depends_on:
+      - validator-1
+      - validator-2
+      - validator-3
+    volumes:
+      - ./runtime/stakehub-bootstrap:/bootstrap:ro
+    entrypoint: ["/usr/local/bin/stakehub-bootstrap"]
+    command: >-
+      --operators ${VALIDATOR_1},${VALIDATOR_2},${VALIDATOR_3}
+      --bootstrap-dir /bootstrap
+    networks:
+      validators:
 
 networks:
   validators:

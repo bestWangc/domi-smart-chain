@@ -15,6 +15,7 @@ GENESIS_BUILDER_IMAGE=${GENESIS_BUILDER_IMAGE:-domi-bsc-genesis-builder:1.7.7}
 INIT_HOLDERS_FILE=${INIT_HOLDERS_FILE:-"$ROOT_DIR/testnet/init_holders.js"}
 SOURCE_CHAIN_ID=${SOURCE_CHAIN_ID:-Domi-Chain}
 TOKEN_HUB_INITIAL_LOCKED_DMT=${TOKEN_HUB_INITIAL_LOCKED_DMT:-0}
+VALIDATOR_INITIAL_BALANCE_WEI=${VALIDATOR_INITIAL_BALANCE_WEI:-2002000000000000000000}
 
 exec 9>"$ROOT_DIR/testnet/.init.lock"
 if ! flock -n 9; then
@@ -42,8 +43,15 @@ if ! [[ "$TOKEN_HUB_INITIAL_LOCKED_DMT" =~ ^[0-9]+$ ]]; then
   echo "TOKEN_HUB_INITIAL_LOCKED_DMT must be a non-negative integer in wei." >&2
   exit 1
 fi
-
+minimum_validator_stake_wei=2001000000000000000000
+if ! [[ "$VALIDATOR_INITIAL_BALANCE_WEI" =~ ^[0-9]+$ ]] || \
+  (( ${#VALIDATOR_INITIAL_BALANCE_WEI} < ${#minimum_validator_stake_wei} )) || \
+  { (( ${#VALIDATOR_INITIAL_BALANCE_WEI} == ${#minimum_validator_stake_wei} )) && [[ "$VALIDATOR_INITIAL_BALANCE_WEI" < "$minimum_validator_stake_wei" ]]; }; then
+  echo "VALIDATOR_INITIAL_BALANCE_WEI must fund the 2001 DMT StakeHub self-delegation." >&2
+  exit 1
+fi
 mkdir -p "$RUNTIME_DIR/nodes"
+mkdir -p "$RUNTIME_DIR/stakehub-bootstrap"
 openssl rand -base64 32 > "$RUNTIME_DIR/password.txt"
 
 # The image is built from this exact checkout, so validator binaries and the
@@ -119,6 +127,9 @@ docker run --rm --entrypoint /bin/bash -v "$GENESIS_SOURCE:/workspace" -w /works
   -lc 'forge install --no-git foundry-rs/forge-std@v1.7.3'
 
 validators_conf="$GENESIS_SOURCE/validators.conf"
+genesis_holders_file="$RUNTIME_DIR/init_holders.js"
+cp "$INIT_HOLDERS_FILE" "$genesis_holders_file"
+printf '\n// Initial validator self-delegation is allocated through the official genesis template.\ninit_holders.push(\n' >> "$genesis_holders_file"
 : > "$validators_conf"
 for index in 0 1 2; do
   node_dir="$RUNTIME_DIR/nodes/node$index"
@@ -130,18 +141,31 @@ for index in 0 1 2; do
     echo "Unable to read validator $index public keys" >&2
     exit 1
   fi
+  bls_proof=$(docker run --rm -v "$node_dir:/data" domi-bsc:v1.7.7 \
+    bls account generate-proof --datadir /data --blspassword /data/bls-password.txt \
+    --chain-id "$CHAIN_ID" "$address" "$bls_key" | sed -n 's/^Proof: 0x//p')
+  if ! [[ "$bls_proof" =~ ^[0-9a-fA-F]{192}$ ]]; then
+    echo "Unable to generate validator $index BLS ownership proof" >&2
+    exit 1
+  fi
+  printf '%s\n' "${bls_key#0x}" > "$RUNTIME_DIR/stakehub-bootstrap/node$index.pub"
+  printf '%s\n' "$bls_proof" > "$RUNTIME_DIR/stakehub-bootstrap/node$index.proof"
+  printf "  { address: '%s', balance: BigInt('%s').toString(16) },\n" \
+    "$address" "$VALIDATOR_INITIAL_BALANCE_WEI" >> "$genesis_holders_file"
   printf '%s,%s,%s,0x0000000000000064,%s\n' "$address" "$address" "$address" "$bls_key" >> "$validators_conf"
   printf 'VALIDATOR_%s=%s\n' "$((index + 1))" "$address" >> "$RUNTIME_DIR/.env"
 done
+printf ');\n' >> "$genesis_holders_file"
 
 docker run --rm --entrypoint /bin/bash -e POETRY_VIRTUALENVS_IN_PROJECT=true -v "$GENESIS_SOURCE:/workspace" -w /workspace "$GENESIS_BUILDER_IMAGE" \
   -lc 'poetry run python -m scripts.generate generate-validators --file-path ./validators.conf'
 # init_holders.js is consumed by the official generate-genesis.js program. It
-# is mounted as an input before generation, never patched into the output JSON.
-docker run --rm --entrypoint node -v "$INIT_HOLDERS_FILE:/holders.js:ro" \
+# includes the configured holders and each validator's self-delegation balance;
+# it is never patched into the output JSON.
+docker run --rm --entrypoint node -v "$genesis_holders_file:/holders.js:ro" \
   -e 'const holders = require("/holders.js"); const defaultDevHolder = "0x9fb29aac15b9a4b7f17c3385939b007540f4d791"; if (!Array.isArray(holders) || holders.length === 0) process.exit(1); for (const holder of holders) { if (!/^0x[0-9a-fA-F]{40}$/.test(holder.address) || typeof holder.balance !== "string" || !/^[0-9a-fA-F]+$/.test(holder.balance) || BigInt(`0x${holder.balance}`) <= 0n || holder.address.toLowerCase() === defaultDevHolder) process.exit(1); }' "$GENESIS_BUILDER_IMAGE"
 docker run --rm --entrypoint /bin/bash -e POETRY_VIRTUALENVS_IN_PROJECT=true -e SOURCE_CHAIN_ID="$SOURCE_CHAIN_ID" -v "$GENESIS_SOURCE:/workspace" \
-  -v "$INIT_HOLDERS_FILE:/workspace/scripts/init_holders.js:ro" -w /workspace "$GENESIS_BUILDER_IMAGE" \
+  -v "$genesis_holders_file:/workspace/scripts/init_holders.js:ro" -w /workspace "$GENESIS_BUILDER_IMAGE" \
   -lc "poetry run python -m scripts.generate dev --dev-chain-id $CHAIN_ID --source-chain-id \"\$SOURCE_CHAIN_ID\""
 # The independent chain retains TokenHub bytecode for BSC compatibility but
 # has no BNB Chain bridge reserve. Regenerate through the official program
@@ -156,7 +180,7 @@ if cmp -s "$GENESIS_SOURCE/genesis-template.json" "$GENESIS_SOURCE/genesis-domi-
   exit 1
 fi
 docker run --rm --entrypoint node -v "$GENESIS_SOURCE:/workspace" \
-  -v "$INIT_HOLDERS_FILE:/workspace/scripts/init_holders.js:ro" -w /workspace "$GENESIS_BUILDER_IMAGE" \
+  -v "$genesis_holders_file:/workspace/scripts/init_holders.js:ro" -w /workspace "$GENESIS_BUILDER_IMAGE" \
   scripts/generate-genesis.js --chainId "$CHAIN_ID" --template ./genesis-domi-template.json --output ./genesis-dev.json \
   --initLockedBNBOnTokenHub "$TOKEN_HUB_INITIAL_LOCKED_DMT"
 docker run --rm --entrypoint /bin/bash -e POETRY_VIRTUALENVS_IN_PROJECT=true -v "$GENESIS_SOURCE:/workspace" -w /workspace "$GENESIS_BUILDER_IMAGE" \

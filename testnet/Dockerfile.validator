@@ -3,6 +3,7 @@ FROM golang:1.25-bookworm AS nodekey-enode
 WORKDIR /src
 COPY . .
 RUN CGO_ENABLED=0 go build -o /out/nodekey-enode ./testnet/nodekey-enode.go
+RUN CGO_ENABLED=0 go build -o /out/stakehub-bootstrap ./testnet/stakehub-bootstrap.go
 
 FROM debian:trixie-slim
 
@@ -11,5 +12,6 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 COPY build/bin/geth /usr/local/bin/geth
 COPY --from=nodekey-enode /out/nodekey-enode /usr/local/bin/nodekey-enode
+COPY --from=nodekey-enode /out/stakehub-bootstrap /usr/local/bin/stakehub-bootstrap
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/geth"]
