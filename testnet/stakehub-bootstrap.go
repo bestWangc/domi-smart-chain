@@ -23,11 +23,12 @@ const stakeHub = "0x0000000000000000000000000000000000002002"
 var stakeHubABI = mustABI(`[ {"type":"function","name":"maxElectedValidators","inputs":[],"outputs":[{"type":"uint256"}],"stateMutability":"view"}, {"type":"function","name":"getValidatorConsensusAddress","inputs":[{"type":"address"}],"outputs":[{"type":"address"}],"stateMutability":"view"}, {"type":"function","name":"createValidator","inputs":[{"name":"consensusAddress","type":"address"},{"name":"voteAddress","type":"bytes"},{"name":"blsProof","type":"bytes"},{"name":"commission","type":"tuple","components":[{"name":"rate","type":"uint64"},{"name":"maxRate","type":"uint64"},{"name":"maxChangeRate","type":"uint64"}]},{"name":"description","type":"tuple","components":[{"name":"moniker","type":"string"},{"name":"identity","type":"string"},{"name":"website","type":"string"},{"name":"details","type":"string"}]}],"outputs":[],"stateMutability":"payable"} ]`)
 
 type rpcTx struct {
-	From  common.Address `json:"from"`
-	To    common.Address `json:"to"`
-	Gas   string         `json:"gas"`
-	Value string         `json:"value"`
-	Data  string         `json:"data"`
+	From     common.Address `json:"from"`
+	To       common.Address `json:"to"`
+	Gas      string         `json:"gas"`
+	GasPrice string         `json:"gasPrice"`
+	Value    string         `json:"value"`
+	Data     string         `json:"data"`
 }
 
 type commission struct{ Rate, MaxRate, MaxChangeRate uint64 }
@@ -106,7 +107,7 @@ func main() {
 		}
 		defer c.Close()
 		var txHash common.Hash
-		tx := rpcTx{From: from, To: common.HexToAddress(stakeHub), Gas: "0x989680", Value: "0x" + value.Text(16), Data: "0x" + hex.EncodeToString(data)}
+		tx := rpcTx{From: from, To: common.HexToAddress(stakeHub), Gas: "0x989680", GasPrice: "0x3b9aca00", Value: "0x" + value.Text(16), Data: "0x" + hex.EncodeToString(data)}
 		if err := c.CallContext(ctx, &txHash, "eth_sendTransaction", tx); err != nil {
 			fatal(fmt.Errorf("validator %d createValidator: %w", i+1, err))
 		}
