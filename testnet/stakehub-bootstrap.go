@@ -95,7 +95,7 @@ func main() {
 		}
 		data, err := stakeHubABI.Pack("createValidator", from, pub, proof,
 			commission{Rate: 10, MaxRate: 100, MaxChangeRate: 5},
-			description{Moniker: fmt.Sprintf("DomiValidator%d", i+1), Identity: from.Hex(), Website: "", Details: "Independent Domi validator"})
+			description{Moniker: fmt.Sprintf("DomiVal%d", i+1), Identity: from.Hex(), Website: "", Details: "Independent Domi validator"})
 		if err != nil {
 			fatal(err)
 		}
