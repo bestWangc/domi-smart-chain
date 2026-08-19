@@ -1,58 +1,66 @@
-# Domi Smart Chain 架构说明
+# Domi Smart Chain Architecture
 
-## 1. 总体结构
+## 1. System overview
 
-Domi 是独立运行的 EVM 公链。它使用 BSC 兼容的执行和 Parlia 共识实现，
-但拥有自己的 chain ID、创世状态、验证者密钥、系统合约状态和治理流程。
+Domi is an independently operated EVM blockchain. It uses BSC-compatible
+execution and Parlia consensus implementations, but has its own chain ID,
+genesis state, validator keys, system-contract state, and governance process.
 
 ```text
-钱包 / RPC
+Wallet / RPC
     |
     v
-EVM 执行层与系统合约
+EVM execution layer and system contracts
     |
     v
-Parlia 共识层
+Parlia consensus layer
     |
     v
-StakeHub 注册、质押与选举
+StakeHub registration, staking, and election
     |
     v
-周期性 validator-set 更新
+Periodic validator-set updates
 ```
 
-## 2. 验证者生命周期
+## 2. Validator lifecycle
 
-创世中的初始 validator set 只保证最初的区块生产。Feynman 初始化后，
-每个验证者还必须通过官方 `createValidator` 流程完成：
+The initial validator set in genesis only enables initial block production.
+After Feynman initialization, every validator must complete the official
+`createValidator` flow, including:
 
-- operator、consensus 和 vote/BLS 数据登记；
-- StakeCredit 代理合约部署；
-- 最低自委托质押锁定；
-- 投票权形成并进入 `getValidatorElectionInfo` 返回值。
+- operator, consensus, and vote/BLS data registration;
+- deployment of a StakeCredit proxy contract;
+- locking the minimum self-delegation; and
+- establishing voting power visible through `getValidatorElectionInfo`.
 
-每个 UTC breathe block，Parlia 从 StakeHub 读取候选集合，过滤零投票权
-节点，按投票权排序并更新系统 validator set。两套集合不一致时，链可能
-在首次 breathe block 停止。
+At each UTC breathe block, Parlia reads the StakeHub election set, removes
+zero-power validators, sorts by voting power, and updates the system validator
+set. If the two sets diverge, the chain may stop at the first breathe block.
 
-## 3. 系统合约与创世
+## 3. System contracts and genesis
 
-系统合约按 fork/version 存放在 `core/systemcontracts/`。创世由官方生成器
-和 Domi 的版本化初始化脚本共同产生。不要在生成结束后手工编辑最终
-genesis JSON；Domi 特有参数应通过生成器参数、输入模板或引导交易表达。
+System contracts are versioned by fork and release under
+`core/systemcontracts/`. Genesis is produced by the official generator and
+Domi's versioned initialization scripts. Do not manually edit the final genesis
+JSON after generation; express Domi-specific parameters through generator
+arguments, input templates, or bootstrap transactions.
 
-## 4. 项目边界
+## 4. Project boundaries
 
-本仓库负责公链客户端、创世、系统合约、验证者节点、P2P 拓扑和健康检查。
+This repository owns the public-chain client, genesis, system contracts,
+validator nodes, P2P topology, and health checks.
 
-独立的 `domi-bridge` 项目负责 BSC 与 Domi 的跨链资产合约、Hyperlane
-Mailbox/ISM/Validator/Relayer、映射资产、储备对账和桥接事故响应。
+The separate `domi-bridge` project owns BSC-to-Domi bridge contracts, Hyperlane
+Mailbox/ISM/Validator/Relayer components, mapped assets, reserve accounting,
+and bridge incident response.
 
-桥接服务不得成为 Domi 出块、同步或验证区块的依赖。桥 Validator 私钥、
-Relayer 私钥和桥治理权限也不得与 Domi 共识验证者密钥复用。
+Bridge services must not be dependencies of Domi block production, syncing, or
+block validation. Bridge Validator keys, Relayer keys, and bridge governance
+permissions must not be reused as Domi consensus validator keys.
 
-## 5. 兼容性边界
+## 5. Compatibility boundaries
 
-“BSC-compatible”不代表 Domi 自动连接 BNB Chain、共享 BNB Chain 验证者
-或自动获得 BSC 资产。所有跨链资产都必须明确来源链、来源合约、储备
-位置、验证阈值和赎回条件。
+“BSC-compatible” does not mean that Domi automatically connects to BNB Chain,
+shares BNB Chain validators, or receives BSC assets. Every cross-chain asset
+must define its source chain, source contract, reserve location, verification
+threshold, and redemption conditions.
